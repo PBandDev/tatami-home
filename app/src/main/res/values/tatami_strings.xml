@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tatami_name">Tatami</string>
+    <string name="tatami_home_name">Tatami Home</string>
+    <string name="tatami_dream_name">Tatami floor plan</string>
+    <string name="effects_title">Effects</string>
+    <string name="floor_plan_effects">Floor plan effects</string>
+    <string name="effect_grain">Film grain</string>
+    <string name="effect_vignette">Vignette</string>
+    <string name="effect_tilt_shift">Tilt-shift edges</string>
+    <string name="effect_doors">Doors</string>
+    <string name="effect_fixtures">Fixtures</string>
+    <string name="effect_camera">Camera drift and zoom</string>
+</resources>

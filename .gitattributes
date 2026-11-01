@@ -1,0 +1,14 @@
+# LF in the repository and in every checkout, whatever core.autocrlf says. The shell scripts and
+# gradlew must keep LF to run on Linux, macOS, WSL and Git Bash. (As in cleanyourtv.)
+* text=auto eol=lf
+
+# cmd.exe batch files need CRLF.
+*.bat text eol=crlf
+
+# Binary files: no line-ending conversion, no textual diff.
+*.jpg  binary
+*.webp binary
+*.mp4  binary
+*.ttf  binary
+*.jar  binary
+*.apk  binary
