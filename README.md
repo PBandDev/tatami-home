@@ -11,7 +11,7 @@ back.
 
 | Home | Screensaver | Effects |
 |---|---|---|
-| ![The dock and the clock over the moving plan](docs/home.jpg) | ![The floor plan, sharp in the middle and soft at the top and bottom](docs/screenshot.jpg) | ![The effects list over the live floor plan](docs/effects.jpg) |
+| ![The dock and the clock over the moving plan](docs/home.jpg) | ![The floor plan, sharp in the middle and soft at the edges](docs/screenshot.jpg) | ![The effects list over the live floor plan](docs/effects.jpg) |
 
 It was tested on a Sony Android TV 10 at 1080p, where it runs at a steady 60 fps. The plan is drawn live with
 OpenGL and uses no footage from the show. Tatami has no internet permission, so nothing leaves the TV

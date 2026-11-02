@@ -19,22 +19,37 @@ All of these come from cleanyourtv's launcher, unchanged.
 
 ## The moving plan
 
-- One rectangle is cut in two, then each half again, 6 levels deep: 64 rooms (a split tree).
-- Every cut is a ratio between 0.25 and 0.75 that slides on its own slow sine. Rooms on both sides of a wall
-  share that one number, so the area always adds up.
-- Doors are quarter circles fixed to the walls, opening and closing. A tub, a toilet and stairs sit in some
-  rooms and shrink with them rather than cross a wall.
-- The camera is tilted 20 degrees, drifts and slowly pulls in and back. The plan is sized so the corners
-  never show.
+Every look value (the layout's knobs, the paints, the walls, the tilt, the doors, the fixtures and the lens) is
+in `Look.java`, one instance per look (`Look.DEFAULT` today). The motion lives in its own classes, so a new
+look never changes the pace.
+
+- The plan is cut once per seed into about 40 rooms: straight cuts, plus "windmills", 4 rooms wrapped around a
+  centre room as tatami mats are laid. A windmill at the top of the tree means no wall crosses the whole screen.
+- Every cut and windmill edge is a ratio that slides on its own slow sine. Rooms on both sides of a wall share
+  that one number, so the area always adds up. No room gets thinner than 5 % of the screen height or longer
+  than 5 to 1.
+- Paints come from a deck of 22 dark olive and khaki paints, dealt once. Rooms that ever touch never share a
+  paint.
+- A door is a pale bar in the wall with a swing that shuts and opens fully, in loose waves. Each keeps its place
+  on its wall; other walls' joins slide past it.
+- A teal toilet and tub, and stairs, sit in about 1 room in 5, at a fixed size, in rooms that are big enough at
+  every moment. They never shrink or cross a wall.
+- The camera is tilted 11 degrees (walls fall to the right), drifts and slowly pulls in and back. The plan is
+  sized so its edges never show, not even in the strip past the screen that the blur reads.
 - Time is the wall clock, so every view of the plan shows the same frame at the same moment. That is why the
   hand-over from Home to the screensaver does not jump.
 
 ## Drawing
 
 - OpenGL ES 2, all on the GPU. The scene is drawn with 4x MSAA.
-- Tilt-shift draws it again at full size, averages it down to 1/4 (a 4x4 box, so thin walls do not flicker),
-  blurs it with a separable Gaussian and blends it over the top and bottom. Grain and the vignette are one
-  last pass.
+- Tilt-shift draws the bare scene into a texture a little bigger than the screen (so walls just off screen
+  blur in too), averages it down to 1/4 (a 4x4 box, so thin walls do not flicker), blurs it once with a
+  separable Gaussian and blends it over the scene everywhere but a sharp oval in the middle.
+- The scene in the window takes the vignette, a colour ramp (bluer left, warmer right) and grain. The vignette,
+  the ramp and the blur's oval come from a small map of the screen made once per size; the grain from a
+  256 x 256 noise tile that jumps to a new place 24 times a second, like film.
+- Six passes, about 6 ms of GPU a frame at 1080p on the test TV. The blur target is padded to whole 16-pixel
+  GPU tiles: unpadded, it cost 3 ms more.
 - Only the scene's triangles go from the CPU to the GPU each frame.
 - On Home the plan is a `GLSurfaceView` under the launcher's views, which draw over it with a dark layer at
   their bottom. The idle fade fades those views as one.
@@ -57,10 +72,16 @@ Both were forced on the test TV: Home stayed the default and its UI kept working
 
 ## Tests
 
-`FloorPlan`, `Camera`, `CameraMatrix`, `Fixtures`, `SceneMesh` and `IdleFade` are plain Java with unit tests:
-the rooms fill the plan at any time and never overlap, every door sits on a wall, fixtures stay in their rooms,
-the tilted, zooming plan always covers the screen, the GL matrix matches the camera, the triangle buffer never
-overflows, and a key that wakes the faded UI does nothing else.
+Everything but the renderer and the Android glue is plain Java with unit tests: the rooms fill the plan at any
+time and never overlap, windmills show up and no wall spans the plan, no room gets too thin or too long,
+touching rooms never share a paint, doors never pop in or out, fixtures stay inside their walls at their
+size, the tilted, zooming plan covers the screen and the blur's strip, the GL matrix matches the camera, the
+grain and the lens map follow their formulas, the triangle buffer never overflows, and a key that wakes the
+faded UI does nothing else.
+
+`tools/shot.sh OUT_DIR 1920 1080 T...` renders the same code on a computer, without a TV: PNGs of the plan at
+times T (before the lens). With `--stats` it prints layout numbers instead: rooms on screen, windmills, room
+shapes, doors, fixtures and paint lightness.
 
 ## Based on cleanyourtv's launcher
 

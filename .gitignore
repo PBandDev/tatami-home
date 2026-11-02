@@ -6,3 +6,4 @@ local.properties
 shots/
 .idea/
 *.iml
+__pycache__/

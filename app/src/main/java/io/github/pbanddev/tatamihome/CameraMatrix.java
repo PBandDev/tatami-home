@@ -2,13 +2,13 @@ package io.github.pbanddev.tatamihome;
 
 /**
  * The {@link Camera} as one OpenGL matrix (column-major, 4x4): plan units in, clip space out.
- * Screen = centre + rotate(ANGLE) * zoom * plan, with y pointing down, then mapped to -1..1.
+ * Screen = centre + rotate(angle) * zoom * plan, with y pointing down, then mapped to -1..1.
  */
 public final class CameraMatrix {
     private CameraMatrix() {}
 
-    public static void build(double t, float w, float h, boolean moving, float[] out) {
-        double angle = Math.toRadians(Camera.ANGLE_DEG);
+    public static void build(double t, float w, float h, boolean moving, float angleDeg, float[] out) {
+        double angle = Math.toRadians(angleDeg);
         float zoom = Camera.zoom(t, moving);
         float cos = (float) Math.cos(angle) * zoom, sin = (float) Math.sin(angle) * zoom;
         float cx = w / 2 + Camera.panX(t, w, moving);
