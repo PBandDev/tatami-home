@@ -10,7 +10,7 @@ default they take turns:
 - **Yojōhan**: olive rooms cut like tatami mats around a half mat. One room grows while the room next to it
   shrinks.
 
-![Tatami's Nagaya look, sharp in the middle and soft at the edges, its doors mid-swing](screenshot.jpg)
+![Tatami full screen: Nagaya's walls glide and its doors swing, a dip to dark swaps it for Yojōhan, and one room grows as the next shrinks](https://raw.githubusercontent.com/PBandDev/tatami-home/bf3b3d9eaa09572d4a962dc57241dd48c000991c/docs/tatami.webp)
 
 - Package: `io.github.pbanddev.tatami`
 - Author: [PBandDev](https://github.com/PBandDev) ([issues](https://github.com/PBandDev/tatami-home/issues))
