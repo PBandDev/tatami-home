@@ -9,7 +9,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 bin=${JAVA_HOME:+$JAVA_HOME/bin/}
 out=build/plantools
-src=app/src/main/java/io/github/pbanddev/tatamihome
+src=plan/src/main/java/io/github/pbanddev/tatami
 rm -rf "$out"
 mkdir -p "$out"
 # only the classes without Android in them
@@ -19,4 +19,4 @@ if [ "${1:-}" = "--stats" ]; then
     main=PlanStats
     shift
 fi
-"${bin}java" -cp "$out" "io.github.pbanddev.tatamihome.$main" "$@"
+"${bin}java" -cp "$out" "io.github.pbanddev.tatami.$main" "$@"

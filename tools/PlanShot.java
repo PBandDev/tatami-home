@@ -1,4 +1,4 @@
-package io.github.pbanddev.tatamihome;
+package io.github.pbanddev.tatami;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -132,7 +132,7 @@ public final class PlanShot {
         }
 
         TileBuilder builder() throws ReflectiveOperationException {
-            return (TileBuilder) Class.forName("io.github.pbanddev.tatamihome." + builder).getDeclaredConstructor().newInstance();
+            return (TileBuilder) Class.forName("io.github.pbanddev.tatami." + builder).getDeclaredConstructor().newInstance();
         }
 
         Scene scene() throws ReflectiveOperationException {

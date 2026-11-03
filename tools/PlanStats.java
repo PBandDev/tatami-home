@@ -1,4 +1,4 @@
-package io.github.pbanddev.tatamihome;
+package io.github.pbanddev.tatami;
 
 import java.util.ArrayList;
 import java.util.Arrays;

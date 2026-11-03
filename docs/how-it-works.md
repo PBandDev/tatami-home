@@ -1,16 +1,28 @@
 # How Tatami works
 
 Notes for people who want to change Tatami or check what it does. To install and use it, read the
-[README](../README.md).
+[README](../README.md) (the Tatami add-on) or [home/README.md](../home/README.md) (Tatami Home).
+
+The repo holds two apps that share one copy of Tatami:
+
+| Folder | What | Installed as |
+|---|---|---|
+| `plan/` | Tatami itself: the plan, its looks and effects, the full-screen view, the effects list, the screensaver | (a library) |
+| `app/` | The Tatami add-on: `plan/` plus a module card for cleanyourtv's Home. Built from the repo root | `io.github.pbanddev.tatami` |
+| `home/app/` | Tatami Home: cleanyourtv's launcher with `plan/` behind the apps. Built with `./gradlew -p home` | `io.github.pbanddev.tatamihome` |
+
+`git archive` leaves out `docs/`, `home/` and `tools/` (`.gitattributes`), so it gives exactly the add-on folder
+that cleanyourtv keeps in `addons/tatami/`.
 
 ## What it asks for
 
-No `INTERNET` permission: nothing here uses the network. The APK is about 640 KB.
+No `INTERNET` permission in either app: nothing here uses the network. The Tatami add-on asks for no
+permission at all (its APK is about 75 KB). Tatami Home's APK is about 640 KB, and it asks for these:
 
 | In the manifest | Why |
 |---|---|
 | `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE` | The Wi-Fi pill: connected or not, and the network's name. |
-| `ACCESS_FINE_LOCATION` | Android 10 and newer only show the Wi-Fi name to apps with location access. Never asked for on screen: `tools/install.sh` grants it. |
+| `ACCESS_FINE_LOCATION` | Android 10 and newer only show the Wi-Fi name to apps with location access. Never asked for on screen: `home/install.sh` grants it. |
 | `WRITE_SECURE_SETTINGS` | Only for the launcher's optional remote-key helpers. Nothing grants it unless you set those up (cleanyourtv's `launcher/build-and-install.sh`). |
 | Two accessibility services (`HomeKeyService`, `InputKeyService`) and a notification listener (`GuardRevival`) | The same optional remote-key helpers. All off until you switch them on in TV Settings; Tatami does not. |
 | `yandex.tv.permission.ACCESS_TV_SOURCE` | Inputs on Yandex TV OS; ignored on other TVs. |
@@ -135,16 +147,21 @@ its tile's rooms, steps and joins and how its walls move.
 
 ## Based on cleanyourtv's launcher
 
-The launcher is cleanyourtv's `launcher/` at commit `6e8615eb`, with its config defaults. Its classes keep their
-package, `com.gathin.tvhome` (the Gradle namespace), so later upstream fixes copy in cleanly. The installed app
-is `io.github.pbanddev.tatamihome`, next to cleanyourtv's own. What Tatami changed in those files:
+Tatami Home's launcher (`home/app/`) is cleanyourtv's `launcher/` at commit `6e8615eb`, with its config defaults.
+Its classes keep their package, `com.gathin.tvhome` (the Gradle namespace), so later upstream fixes copy in
+cleanly. The installed app is `io.github.pbanddev.tatamihome`, next to cleanyourtv's own. What Tatami changed in
+those files:
 
 - `MainActivity`: the plan and the idle fade (`FloorPlanBackdrop`), a few lines.
 - `Config` and `config.xml`: the three `floor_plan` keys.
 - `LauncherSettingsActivity` and its layout: the Floor plan effects row, in place of the Wallpaper row.
 - `styles.xml`: the window theme says it is opaque, as cleanyourtv's `PROMPT.md` asks.
 - The manifest: Tatami's name, icon and banner, and its preview, effects list and screensaver.
-- `tools/theme.sh` and `tools/theme_restart.py`: Tatami's package; `tv.py` comes from the cleanyourtv checkout.
+- `home/tools/theme.sh` and `home/tools/theme_restart.py`: Tatami Home's package; `tv.py` comes from the
+  cleanyourtv checkout.
+
+`FloorPlanBackdrop` and `IdleFade` (the plan behind Home, and the fade) live in `home/app/`, in the plan's
+package, `io.github.pbanddev.tatami`.
 
 `floor_plan_idle_minutes` takes the place of the launcher's `home_idle_clock_minutes`.
 
@@ -153,8 +170,10 @@ is `io.github.pbanddev.tatamihome`, next to cleanyourtv's own. What Tatami chang
 - On the test TV, the remote's Home key, the screensaver and a reboot all land on Tatami. Home and the
   screensaver run in one app process: about 100 MB of memory with both on screen, Nagaya and every effect on.
 - The release build is signed with your local debug key.
-- Set the screensaver over adb:
-  `adb shell settings put secure screensaver_components io.github.pbanddev.tatamihome/.FloorPlanDream`
+- Set the screensaver over adb: the add-on's is
+  `adb shell settings put secure screensaver_components io.github.pbanddev.tatami/.FloorPlanDream`, Tatami Home's
+  is `io.github.pbanddev.tatamihome/io.github.pbanddev.tatami.FloorPlanDream` (`install.sh` sets the add-on's,
+  and `home/install.sh` moves Tatami Home 0.2's old name to the new one).
 - Give Home back to cleanyourtv's launcher:
   `cmd package set-home-activity --user 0 com.gathin.tvhome/.MainActivity` (`install.sh --home` prints the
   right one for your TV).

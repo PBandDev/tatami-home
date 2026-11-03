@@ -1,0 +1,19 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "tatami-home"
+// Tatami Home: cleanyourtv's launcher with Tatami behind the apps. Build it from the repo root with
+// ./gradlew -p home assembleRelease. It draws Tatami with the add-on's plan/ module, one folder up.
+include ':app', ':plan'
+project(':plan').projectDir = file('../plan')

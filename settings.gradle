@@ -12,5 +12,7 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "tatami-home"
-include ':app'
+rootProject.name = "tatami"
+// The Tatami add-on: app/ is the installed app, plan/ draws Tatami. Tatami Home, the launcher with
+// Tatami behind the apps, is a separate build in home/ that uses the same plan/.
+include ':app', ':plan'

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Not "Tatami": the Tatami add-on's card would then be refused as the name of another installed app. -->
+    <string name="tatami_home_name">Tatami Home</string>
+    <string name="tatami_dream_name">Tatami Home</string>
+    <string name="floor_plan_effects">Floor plan effects</string>
+</resources>
