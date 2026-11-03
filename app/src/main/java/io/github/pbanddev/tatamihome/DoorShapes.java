@@ -3,7 +3,8 @@ package io.github.pbanddev.tatamihome;
 /**
  * Draws one door of a {@link Frame} into the {@link SceneMesh}: a pale bar inside the wall,
  * always there, and the swing, a filled sector from the wall face to the leaf with dark strokes on the arc
- * and the leaf (none along the wall face). A shut door is only its bar.
+ * and the leaf (none along the wall face). A shut door is only its bar. The bar and the sector are fills, which a
+ * {@link Wash} reaches; the strokes are ink, which it never does.
  *
  * <p>In the door's own frame u runs along the wall from the hinge toward the bar's far end and v across
  * the wall toward the swing side, with the wall's centre line at v = 0. The swing turns about the hinge on
@@ -26,7 +27,7 @@ final class DoorShapes {
         float vx = vertical ? f.doorSide[d] : 0, vy = vertical ? 0 : f.doorSide[d];
         float x = f.doorX[d], y = f.doorY[d];
 
-        m.color(look.colours.door);
+        m.color(look.palette.door);
         float x0 = x - vx * bar, y0 = y - vy * bar, x1 = x + vx * bar, y1 = y + vy * bar;
         float lx = ux * length, ly = uy * length;
         m.triangle(x0, y0, x0 + lx, y0 + ly, x1 + lx, y1 + ly);
@@ -44,7 +45,7 @@ final class DoorShapes {
             px = qx;
             py = qy;
         }
-        m.color(look.colours.line);
+        m.ink(look.palette.line);
         // the leaf reaches half a stroke past the arc, closing the corner where they meet
         float reach = radius + line / 2;
         float c = (float) Math.cos(open), n = (float) Math.sin(open);

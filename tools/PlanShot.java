@@ -13,25 +13,36 @@ import javax.imageio.ImageIO;
  * (no grain, vignette or blur). Java2D fills the triangles at 2x without anti-aliasing, then a 2x2
  * average gives one pixel: close to the TV's 4x MSAA. About 0.12 s per 1080p frame.
  *
- * <p>Usage (tools/shot.sh compiles it): PlanShot OUT_DIR W H T [T...]. T is in seconds, like the wall
- * clock the TV uses (System.currentTimeMillis() / 1000.0). Writes OUT_DIR/shot_t{T}.png.
+ * <p>Usage (tools/shot.sh compiles it): PlanShot [OPTIONS] OUT_DIR W H T [T...]. T is in seconds, like the wall
+ * clock the TV uses (System.currentTimeMillis() / 1000.0). Writes OUT_DIR/shot_t{T}.png. Options:
+ * {@code --look yojohan|nagaya} (default yojohan), {@code --flat} (no tilt, zoom 1, the plan's origin in the middle:
+ * the layout as built), and for Nagaya {@code --seed N}, {@code --tile WxH} (in steps) and {@code --builder NAME}
+ * (a {@link TileBuilder} class in this package).
  */
 public final class PlanShot {
     private static final int SS = 2;
 
     public static void main(String[] args) throws Exception {
-        if (args.length < 4) {
-            System.err.println("usage: PlanShot OUT_DIR W H T [T...]");
+        Options o = new Options(args);
+        if (o.rest.length < 4) {
+            System.err.println("usage: PlanShot [--look yojohan|nagaya] [--flat] [--seed N] [--tile WxH] [--builder NAME] OUT_DIR W H T [T...]");
             System.exit(2);
         }
+        args = o.rest;
         File dir = new File(args[0]);
         if (!dir.isDirectory() && !dir.mkdirs()) throw new IllegalStateException("cannot make " + dir);
         int w = Integer.parseInt(args[1]), h = Integer.parseInt(args[2]);
-        Scene scene = new Scene(Look.DEFAULT);
+        Scene scene = o.scene();
         for (int a = 3; a < args.length; a++) {
             long start = System.nanoTime();
             double t = Double.parseDouble(args[a]);
-            scene.build(t, w, h, true, true, true);
+            if (o.flat) {
+                scene.view.set(w, h, 0f, 1f, 0.0, 0.0, Scene.margin(scene.look));
+                scene.view.matrix(scene.matrix);
+                scene.fill(t, true, true, scene.look.post.wash ? Wash.NAGAYA : null);
+            } else {
+                scene.build(t, w, h, true, true, true);
+            }
             File file = new File(dir, "shot_t" + args[a] + ".png");
             ImageIO.write(render(scene, w, h), "png", file);
             System.out.printf("%s  %d triangles  %.0f ms%n", file.getName(),
@@ -43,7 +54,7 @@ public final class PlanShot {
         BufferedImage big = new BufferedImage(w * SS, h * SS, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = big.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-        g.setColor(new Color(scene.look.colours.floor & 0xFFFFFF));
+        g.setColor(new Color(scene.look.palette.floor & 0xFFFFFF));
         g.fillRect(0, 0, w * SS, h * SS);
         Path2D.Float p = new Path2D.Float();
         float[] d = scene.mesh.data, m = scene.matrix;
@@ -79,5 +90,54 @@ public final class PlanShot {
             }
         }
         return out;
+    }
+
+    /** The command line's options, shared with {@link PlanStats}; {@link #rest} is what follows them. */
+    static final class Options {
+        String look = "yojohan", builder = "SkylineBuilder";
+        long seed = -1;
+        int tileW = -1, tileH = -1, slots = 1000;
+        boolean flat;
+        String[] rest;
+
+        Options(String[] args) {
+            int a = 0;
+            for (; a < args.length && args[a].startsWith("--"); a++) {
+                switch (args[a]) {
+                    case "--look": look = args[++a]; break;
+                    case "--flat": flat = true; break;
+                    case "--seed": seed = Long.parseLong(args[++a]); break;
+                    case "--builder": builder = args[++a]; break;
+                    case "--slots": slots = Integer.parseInt(args[++a]); break;
+                    case "--tile": {
+                        String[] wh = args[++a].split("x");
+                        tileW = Integer.parseInt(wh[0]);
+                        tileH = Integer.parseInt(wh[1]);
+                        break;
+                    }
+                    default: throw new IllegalArgumentException("unknown option " + args[a]);
+                }
+            }
+            rest = java.util.Arrays.copyOfRange(args, a, args.length);
+        }
+
+        Look look() {
+            if (look.equals("yojohan")) return Look.YOJOHAN;
+            if (!look.equals("nagaya")) throw new IllegalArgumentException("no look " + look);
+            Look n = Look.NAGAYA;
+            Look.Plan p = n.plan;
+            return new Look(p.withTile(seed >= 0 ? seed : p.seed, tileW > 0 ? tileW : p.tileWUnits,
+                    tileH > 0 ? tileH : p.tileHUnits),
+                    n.rhythm, n.motion, n.palette, n.walls, n.camera, n.doors, n.fixtures, n.post);
+        }
+
+        TileBuilder builder() throws ReflectiveOperationException {
+            return (TileBuilder) Class.forName("io.github.pbanddev.tatamihome." + builder).getDeclaredConstructor().newInstance();
+        }
+
+        Scene scene() throws ReflectiveOperationException {
+            Look l = look();
+            return l == Look.YOJOHAN ? new Scene(l) : new Scene(l, builder());
+        }
     }
 }

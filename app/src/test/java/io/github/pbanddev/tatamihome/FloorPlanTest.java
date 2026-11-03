@@ -10,7 +10,7 @@ import org.junit.Test;
 
 public class FloorPlanTest {
 
-    private static final Look LOOK = Look.DEFAULT;
+    private static final Look LOOK = Look.YOJOHAN;
     private static final float SCREEN_H = 1080f;
     /** The plan Scene lays out for a 1080p screen: plan units are screen pixels at zoom 1. */
     private static final float W = Camera.planWidth(1920, SCREEN_H, LOOK.camera.angleDeg);

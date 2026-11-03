@@ -5,7 +5,7 @@ import static org.junit.Assert.assertEquals;
 import org.junit.Test;
 
 public class CameraMatrixTest {
-    private static final float ANGLE = Look.DEFAULT.camera.angleDeg;
+    private static final float ANGLE = Look.YOJOHAN.camera.angleDeg;
 
     @Test
     public void matrixPutsEveryPlanPointWhereTheCameraSays() {

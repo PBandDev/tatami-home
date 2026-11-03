@@ -256,10 +256,12 @@
                 android:resource="@xml/input_key_service" />
         </service>
 
-        <!-- Tatami: the floor plan on its own, from its tile in another launcher. OK opens the effects. -->
+        <!-- Tatami: the floor plan on its own, from its tile in any launcher. OK opens the effects. It and the
+             effects list have a task of their own: in Home's task, a tile's launch would only bring Home back. -->
         <activity
             android:name="io.github.pbanddev.tatamihome.PreviewActivity"
             android:exported="true"
+            android:taskAffinity="io.github.pbanddev.tatamihome.plan"
             android:theme="@style/Theme.Tatami"
             android:screenOrientation="landscape">
             <intent-filter>
@@ -269,10 +271,12 @@
         </activity>
 
         <!-- Tatami: the effects list over the live plan. Exported so the TV's screensaver settings can open it;
-             Launcher settings opens it too. -->
+             Launcher settings opens it too. Single-top, so a look given as an extra reaches it while it is open. -->
         <activity
             android:name="io.github.pbanddev.tatamihome.SettingsActivity"
             android:exported="true"
+            android:taskAffinity="io.github.pbanddev.tatamihome.plan"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Tatami"
             android:screenOrientation="landscape" />
 

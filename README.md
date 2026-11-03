@@ -1,9 +1,15 @@
 # Tatami
 
-A home screen and screensaver for Android TV. Behind your apps, a floor plan keeps moving: one room grows
-while the room next to it shrinks. It is inspired by the ending of *The Tatami Galaxy* (2010).
+A home screen and screensaver for Android TV. Behind your apps, a floor plan keeps moving. It is inspired by the
+ending of *The Tatami Galaxy* (2010). It has two looks, and by default they take turns:
 
-![Tatami Home: the highlight moves along the dock, then the apps fade to the plan and come back](docs/home.webp)
+- **Nagaya**: rows of small, warm rooms, like a row house. A few walls at a time glide to new places, each on its
+  own time, and then rest. The doors swing open and shut in a slow ripple, and the camera slowly rolls, zooms and
+  drifts.
+- **Yojōhan**: olive rooms cut like tatami mats around a half mat. One room grows while the room next to it
+  shrinks.
+
+![Tatami Home: the highlight moves along the dock, the apps fade to Nagaya, a dip to dark swaps it for Yojōhan, and the apps come back](docs/home.webp)
 
 The home screen is [cleanyourtv](https://github.com/Gathin23/cleanyourtv)'s launcher with the plan behind it.
 Leave the remote alone for 2 minutes and the apps fade out, so only the plan shows. Press any key to bring them
@@ -11,7 +17,7 @@ back.
 
 | Home | Screensaver | Effects |
 |---|---|---|
-| ![The dock and the clock over the moving plan](docs/home.jpg) | ![The floor plan, sharp in the middle and soft at the edges](docs/screenshot.jpg) | ![The effects list over the live floor plan](docs/effects.jpg) |
+| ![The dock and the clock over Yojōhan](docs/home.jpg) | ![Nagaya, sharp in the middle and soft at the edges, its doors mid-swing](docs/screenshot.jpg) | ![The effects list, with the Look and Swap rows, over Nagaya](docs/effects.jpg) |
 
 It was tested on a Sony Android TV 10 at 1080p, where it runs at a steady 60 fps. The plan is drawn live with
 OpenGL and uses no footage from the show. Tatami has no internet permission, so nothing leaves the TV
@@ -37,11 +43,14 @@ Your old launcher stays installed, so you can always go back. `--home` prints th
 ## Use it
 
 - **Home** works like cleanyourtv's launcher. See [its guide](https://github.com/Gathin23/cleanyourtv/blob/main/docs/launcher.md).
-- **Effects:** hold OK on **Settings**, then pick **Launcher settings** > **Floor plan effects**. Turn each one
-  on or off and see it change behind the list: film grain, vignette, tilt-shift edges, doors, fixtures, and
-  camera drift and zoom. All are on at first.
+- **Look and effects:** hold OK on **Settings**, then pick **Launcher settings** > **Floor plan effects**. Or open
+  the *Tatami* tile in the app list and press OK. The first row picks the **Look**: Both (the default), Nagaya or Yojōhan. The next sets how often Both swaps looks:
+  every 5, 10, 30 or 60 minutes, with a short dip to dark. Below them, turn each effect on or off and see it change
+  behind the list: film grain, vignette, tilt-shift edges, doors, fixtures, and camera drift and zoom. All are on
+  at first. In Nagaya, the vignette switch turns its colour wash on and off, the camera switch holds the view still
+  (the walls and doors still move), and fixtures do nothing.
 - **Screensaver:** in TV Settings, go to Device Preferences > Screen saver > *Tatami floor plan*. It uses the
-  same effects as Home.
+  same look and effects as Home.
 - **Without making it Home:** open the *Tatami* tile from your current launcher to see the plan. Press
   OK there for the effects.
 

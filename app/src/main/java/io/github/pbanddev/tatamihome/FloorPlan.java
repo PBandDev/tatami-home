@@ -92,9 +92,9 @@ public final class FloorPlan {
         this(look, look.plan.seed);
     }
 
-    /** Kept for tests written before the windmill layout: Look.DEFAULT with another seed. The depth is not used. */
+    /** Kept for tests written before the windmill layout: Look.YOJOHAN with another seed. The depth is not used. */
     public FloorPlan(long seed, int depth) {
-        this(Look.DEFAULT, seed);
+        this(Look.YOJOHAN, seed);
     }
 
     FloorPlan(Look look, long seed) {

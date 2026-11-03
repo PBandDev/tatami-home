@@ -5,7 +5,7 @@ Notes for people who want to change Tatami or check what it does. To install and
 
 ## What it asks for
 
-No `INTERNET` permission: nothing here uses the network. The APK is about 580 KB.
+No `INTERNET` permission: nothing here uses the network. The APK is about 640 KB.
 
 | In the manifest | Why |
 |---|---|
@@ -20,8 +20,36 @@ All of these come from cleanyourtv's launcher, unchanged.
 ## The moving plan
 
 Every look value (the layout's knobs, the paints, the walls, the tilt, the doors, the fixtures and the lens) is
-in `Look.java`, one instance per look (`Look.DEFAULT` today). The motion lives in its own classes, so a new
-look never changes the pace.
+in `Look.java`, one instance per look: `Look.NAGAYA` and `Look.YOJOHAN`. Nagaya's pace is in its `Look` too;
+Yojōhan's motion lives in its own classes, so its pace never changes.
+
+Time is the wall clock, so every view of the plan shows the same frame at the same moment. That is why the
+hand-over from Home to the screensaver does not jump.
+
+### Nagaya
+
+- One tile of about 62 rooms, 2.5 by 1.6 screen heights, repeats across the plan; each row of tiles is shifted
+  half a tile. The camera's centre wraps by whole tiles, so the numbers stay small and exact however long it runs.
+- Rooms sit in rows about a sixth of the screen height tall. A room is 1 to 3 boxes: a plain box, an L or a room
+  with 2 steps in its edges, never more; wider rooms get more steps. Every wall lies on a grid of steps, 1/108 of
+  the screen height.
+- About every 7 seconds, at uneven times, some walls glide to new places and then everything rests. Each moving
+  wall starts up to 1.8 s after the others and takes its own 2.4 to 3.2 s, eased at both ends. How much moves
+  changes from time to time, and about 1 time in 7 nothing moves. Every 10 minutes every wall is back home.
+- No room gets thinner than 70 % of its size at rest. Every rule the walls keep compares 2 walls, so a move is
+  taken only if each rule also holds with one of its walls moved and the other not yet: then it holds at every
+  moment, whichever wall moves first.
+- Paints come from a deck of 23 warm and olive paints, shuffled once. Over them lies a colour wash fixed to the
+  screen, bluer to the left and darker at the bottom, worked out on the CPU at the corners of small pieces of each
+  room. The walls stay flat black.
+- About 1 pair of touching rooms in 4 shares a door, at most one, so most rooms have one. Every door opens
+  clockwise, and only where the room it swings into stays deep enough. All doors follow one opening on a clock of
+  their own, about every 13 seconds at uneven times, each door up to 2 s behind the shared one, so they open in a
+  slow ripple.
+- The camera holds its tilt for 40 s, turns between 16 and 24 degrees over 26 s, and zooms out from 1 to 0.78 and
+  back as it turns, all eased. It drifts down the screen and a little to the left, with a slow wander.
+
+### Yojōhan
 
 - The plan is cut once per seed into about 40 rooms: straight cuts, plus "windmills", 4 rooms wrapped around a
   centre room as tatami mats are laid. A windmill at the top of the tree means no wall crosses the whole screen.
@@ -36,8 +64,14 @@ look never changes the pace.
   every moment. They never shrink or cross a wall.
 - The camera is tilted 11 degrees (walls fall to the right), drifts and slowly pulls in and back. The plan is
   sized so its edges never show, not even in the strip past the screen that the blur reads.
-- Time is the wall clock, so every view of the plan shows the same frame at the same moment. That is why the
-  hand-over from Home to the screensaver does not jump.
+
+### Both
+
+- Both, the default, shows Nagaya and Yojōhan in turns of 5, 10, 30 or 60 minutes, Nagaya first. Each swap dips
+  to dark for 1.2 s each way, and the look changes in the dark.
+- Yojōhan is built at once. Nagaya is built once per app process on a background thread, the first time a view
+  asks for it (about 0.2 s on the test TV), and Home, the screensaver and the effects list share it. A view that
+  starts while it builds waits in the dark, at most 2 s, and fades Nagaya in.
 
 ## Drawing
 
@@ -45,11 +79,13 @@ look never changes the pace.
 - Tilt-shift draws the bare scene into a texture a little bigger than the screen (so walls just off screen
   blur in too), averages it down to 1/4 (a 4x4 box, so thin walls do not flicker), blurs it once with a
   separable Gaussian and blends it over the scene everywhere but a sharp oval in the middle.
-- The scene in the window takes the vignette, a colour ramp (bluer left, warmer right) and grain. The vignette,
-  the ramp and the blur's oval come from a small map of the screen made once per size; the grain from a
-  256 x 256 noise tile that jumps to a new place 24 times a second, like film.
-- Six passes, about 6 ms of GPU a frame at 1080p on the test TV. The blur target is padded to whole 16-pixel
-  GPU tiles: unpadded, it cost 3 ms more.
+- In Yojōhan, the scene in the window takes the vignette, a colour ramp (bluer left, warmer right) and grain.
+  The vignette, the ramp and the blur's oval come from a small map of the screen made once per size; the grain
+  from a 256 x 256 noise tile that jumps to a new place 24 times a second, like film. Nagaya's colours come
+  washed from the CPU, so its scene takes only the grain, and its blend only the blur's oval.
+- Each swap's dip to dark is one brightness value, applied last in the 2 passes that reach the window.
+- Six passes, about 6 to 8 ms of GPU a frame at 1080p on the test TV, for either look. The blur target is padded
+  to whole 16-pixel GPU tiles: unpadded, it cost 3 ms more.
 - Only the scene's triangles go from the CPU to the GPU each frame.
 - On Home the plan is a `GLSurfaceView` under the launcher's views, which draw over it with a dark layer at
   their bottom. The idle fade fades those views as one.
@@ -68,20 +104,34 @@ next Home press shows the chooser. So a GL failure never ends the app:
 - A failure in Android's EGL setup ends only the drawing thread. The window is let go of the frame it waited
   for, and Home's next start leaves the plan out until the app is updated.
 
-Both were forced on the test TV: Home stayed the default and its UI kept working.
+- Nagaya is made through one guarded factory. Anything it throws, while it builds or while it draws, is logged
+  once, and Yojōhan is drawn instead for as long as the app runs.
+
+All three were forced on the test TV: Home stayed the default and its UI kept working.
 
 ## Tests
 
-Everything but the renderer and the Android glue is plain Java with unit tests: the rooms fill the plan at any
-time and never overlap, windmills show up and no wall spans the plan, no room gets too thin or too long,
-touching rooms never share a paint, doors never pop in or out, fixtures stay inside their walls at their
-size, the tilted, zooming plan covers the screen and the blur's strip, the GL matrix matches the camera, the
-grain and the lens map follow their formulas, the triangle buffer never overflows, and a key that wakes the
-faded UI does nothing else.
+Everything but the renderer and the Android glue is plain Java with unit tests.
+
+- Yojōhan: every float of its triangles and camera matrix, over 40 times, 3 screen sizes and every switch, is held
+  to one hash, and its shader text to its first version; the rooms fill the plan at any time and never overlap,
+  windmills show up and no wall spans the plan, no room gets too thin or too long, touching rooms never share a
+  paint, doors never pop in or out, and fixtures stay inside their walls at their size.
+- Nagaya: the rooms fill the plan at any moment, mid-glide too and across the tile's edges; every wall rule holds
+  at every moment, whatever order the walls move in; no room gets below 70 % of its size at rest; nothing moves
+  between glides; a cold start equals a long run; 50 seeds at 2000 random times never throw or overflow; doors sit
+  only on long enough walls, open clockwise, never swing across a wall and follow one opening in a ripple; the
+  camera stays in its ranges and never jumps, also across tile edges; and the wash is the W3C soft light, bluer
+  at the left and darker at the bottom.
+- Both: the swaps, their dips and the wait for Nagaya follow the clock; a look that fails to build gives Yojōhan.
+- And: the tilted, zooming plan covers the screen and the blur's strip, the GL matrix matches the camera, the
+  grain and the lens map follow their formulas, the triangle buffer never overflows, and a key that wakes the
+  faded UI does nothing else.
 
 `tools/shot.sh OUT_DIR 1920 1080 T...` renders the same code on a computer, without a TV: PNGs of the plan at
-times T (before the lens). With `--stats` it prints layout numbers instead: rooms on screen, windmills, room
-shapes, doors, fixtures and paint lightness.
+times T (before the lens; add `--look nagaya` for Nagaya, and `--flat` to see it untilted). With `--stats` it
+prints layout numbers instead: rooms on screen, room shapes, doors, fixtures and paint lightness, and for Nagaya
+its tile's rooms, steps and joins and how its walls move.
 
 ## Based on cleanyourtv's launcher
 
@@ -100,8 +150,8 @@ is `io.github.pbanddev.tatamihome`, next to cleanyourtv's own. What Tatami chang
 
 ## Small facts
 
-- On the test TV, the remote's Home key, the screensaver and a reboot all land on Tatami. The screensaver uses
-  about 35 MB of memory with every effect on.
+- On the test TV, the remote's Home key, the screensaver and a reboot all land on Tatami. Home and the
+  screensaver run in one app process: about 100 MB of memory with both on screen, Nagaya and every effect on.
 - The release build is signed with your local debug key.
 - Set the screensaver over adb:
   `adb shell settings put secure screensaver_components io.github.pbanddev.tatamihome/.FloorPlanDream`

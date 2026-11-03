@@ -10,7 +10,7 @@ import org.junit.Test;
 
 public class DoorsTest {
 
-    private static final Look LOOK = Look.DEFAULT;
+    private static final Look LOOK = Look.YOJOHAN;
     private static final double EPOCH = 1_793_500_000.0;
     private static final float EPS = 0.05f;
     private static final double ANGLE_EPS = 1e-9;
@@ -35,7 +35,7 @@ public class DoorsTest {
         Scene scene = new Scene(LOOK);
         double open = Math.toRadians(LOOK.doors.swingMaxDeg), step = 1.0 / 60;
         int steps = 12 * 60;   // more than 2 swings
-        int walls = scene.plan.rooms - 1;
+        int walls = scene.layout.rooms() - 1;
         int[] present = new int[walls], shutRun = new int[walls], openRun = new int[walls];
         int[] longestShut = new int[walls], longestOpen = new int[walls];
         for (int s = 0; s < steps; s++) {
@@ -137,7 +137,7 @@ public class DoorsTest {
     @Test
     public void eachWallKeepsItsHingeEndAndSwingSide() {
         Scene scene = new Scene(LOOK);
-        int walls = scene.plan.rooms - 1;
+        int walls = scene.layout.rooms() - 1;
         int[] along = new int[walls], side = new int[walls];
         for (int i = 0; i < 150; i++) {
             Frame f = build(scene, i).frame;

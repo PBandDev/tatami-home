@@ -25,7 +25,7 @@ public class FixturesTest {
 
     /** From fixture k's box to its room's wall faces: left, top, right, bottom. */
     private static float[] faceGaps(Frame f, int k, float screenH) {
-        float half = screenH * Look.DEFAULT.walls.widthH / 2;
+        float half = screenH * Look.YOJOHAN.walls.widthH / 2;
         int r = f.fixtureRoom[k];
         return new float[] {
                 f.fixtureX[k] - (f.roomX[r] + half),
@@ -36,7 +36,7 @@ public class FixturesTest {
 
     @Test
     public void fixturesStayInsideTheirWallFacesWithTheirGapsAtAnyTime() {
-        Scene scene = new Scene(Look.DEFAULT);
+        Scene scene = new Scene(Look.YOJOHAN);
         int seen = 0;
         for (int i = 0; i < 80; i++) {
             int[] screen = SCREENS[i % 2];
@@ -71,7 +71,7 @@ public class FixturesTest {
 
     @Test
     public void stairsSitFlushInTheCornerTheirArrowPointsInto() {
-        Scene scene = new Scene(Look.DEFAULT);
+        Scene scene = new Scene(Look.YOJOHAN);
         int seen = 0;
         for (int i = 0; i < 80; i++) {
             scene.build(time(i), 1920, 1080, false, true, false);
@@ -92,7 +92,7 @@ public class FixturesTest {
 
     @Test
     public void fixturesKeepTheirRoomKindTurnAndSizeOverTime() {
-        Scene scene = new Scene(Look.DEFAULT);
+        Scene scene = new Scene(Look.YOJOHAN);
         Frame f = scene.frame;
         scene.build(time(0), 1920, 1080, false, true, false);
         int count = f.fixtureCount;
@@ -114,7 +114,7 @@ public class FixturesTest {
 
     @Test
     public void aboutOneRoomInFiveHoldsAFixtureAndTheKindsFollowTheirWeights() {
-        Scene scene = new Scene(Look.DEFAULT);
+        Scene scene = new Scene(Look.YOJOHAN);
         scene.build(0, 1920, 1080, false, true, false);
         Frame f = scene.frame;
         int[] count = new int[3];
@@ -130,7 +130,7 @@ public class FixturesTest {
     public void everyShapeFillsItsBoxAtEveryTurnWithinTheVertexBudget() {
         float h = 1080f;
         Frame f = new Frame(1);
-        SceneMesh mesh = new SceneMesh(1, Look.DEFAULT);
+        SceneMesh mesh = new SceneMesh(1, Look.YOJOHAN);
         for (int kind = 0; kind < 3; kind++) {
             for (int turn = 0; turn < 4; turn++) {
                 f.fixtureKind[0] = kind;
@@ -140,7 +140,7 @@ public class FixturesTest {
                 f.fixtureW[0] = px(BOX[kind][turn % 2], h);
                 f.fixtureH[0] = px(BOX[kind][1 - turn % 2], h);
                 mesh.floats = 0;
-                FixtureShapes.add(mesh, f, 0, h, Look.DEFAULT);
+                FixtureShapes.add(mesh, f, 0, h, Look.YOJOHAN);
                 String at = "kind " + kind + " turn " + turn;
                 assertTrue(at, mesh.floats / SceneMesh.FLOATS_PER_VERTEX <= FixtureShapes.MAX_VERTICES);
                 float x0 = Float.MAX_VALUE, y0 = Float.MAX_VALUE, x1 = -Float.MAX_VALUE, y1 = -Float.MAX_VALUE;

@@ -6,7 +6,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 public class LensTest {
-    private static final Look.Post POST = Look.DEFAULT.post;
+    private static final Look.Post POST = Look.YOJOHAN.post;
     private static final int W = 1920, H = 1080;
 
     /** The lens formulas, written out in Java: vignette times colour ramp for channel c at p (half heights, y up). */

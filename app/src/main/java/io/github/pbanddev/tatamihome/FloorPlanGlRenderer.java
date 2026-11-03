@@ -23,50 +23,30 @@ import javax.microedition.khronos.opengles.GL10;
  *       same as before it, and the blurred copy's scene pass stays cheap.</li>
  * </ol>
  * The vignette, the colour ramp and the blur's oval come from a small picture of the screen made once per
- * size ({@link Lens}), so each pixel reads them instead of working them out.
+ * size ({@link Lens}), so each pixel reads them instead of working them out. Nagaya's fills come washed from the
+ * CPU ({@link Wash}), so its 2 window passes take no vignette or colour ramp; its blend reads the map's oval only.
  * Six passes; with tilt-shift off, only the scene into the window. Nothing is copied from the CPU to the GPU
  * each frame except the scene's triangles. The grain tile goes up once per GL context.
+ *
+ * <p>Each look has its own {@link Slot}; the {@link LookSchedule} picks the one to draw each frame and how bright.
+ * Yojōhan's scene is built here, at once, as it always was. Nagaya's is built once per process on a background
+ * thread ({@link NagayaScene}), after this view's first frame, and only once the Look setting asks for it. Anything
+ * Nagaya throws marks it failed for the process ({@link Scenes#APP}) and Yojōhan is drawn instead; only a failure
+ * of Yojōhan's frame, or of what both share, sets {@link #broken}.
  */
 final class FloorPlanGlRenderer implements GLSurfaceView.Renderer {
 
-    private static final String PRECISION =
-            "#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n";
-    /**
-     * Mediump maths, about twice as fast as highp on many TV GPUs, with HIGHP for the texture coordinates that must
-     * land on the right pixel: the grain tile's (in mediump, gl_FragCoord / 256 cannot hit texel centres across
-     * a 1080p screen) and the blurred copy's (mediump is about 1 px off near the right edge).
-     */
-    private static final String LENS_PRECISION = "precision mediump float;\n"
-            + "#ifdef GL_FRAGMENT_PRECISION_HIGH\n#define HIGHP highp\n#else\n#define HIGHP mediump\n#endif\n";
-    /** The scene's colours as they are, for the copy to blur. */
-    private static final String PLAIN_FRAGMENT = "precision mediump float;\nvarying vec4 vColor;\n"
-            + "void main() { gl_FragColor = vColor; }\n";
     /** Attribute slots, bound before every program links. */
     private static final int POS = 0, COLOR = 1;
     private static final long GRAIN_SEED = 1L;
-    private static final String SCENE_VERTEX =
-            "uniform mat4 uMatrix;\nattribute vec2 aPos;\nattribute vec4 aColor;\nvarying vec4 vColor;\n"
-                    + "void main() { vColor = aColor; gl_Position = uMatrix * vec4(aPos, 0.0, 1.0); }\n";
-    private static final String QUAD_VERTEX =
-            "attribute vec2 aPos;\nvarying vec2 vUv;\n"
-                    + "void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }\n";
-    /**
-     * Full size down to 1/4 as a 4x4 box: 4 bilinear taps, each the average of 2x2 texels. A wall
-     * thinner than one small pixel then fades in and out smoothly instead of popping, which is
-     * what made the blurred edges flicker when the scene was drawn straight at 1/4 size.
-     */
-    private static final String DOWNSAMPLE_FRAGMENT = PRECISION
-            + "uniform sampler2D uTex;\nuniform vec2 uTexel;\nvarying vec2 vUv;\n"
-            + "void main() {\n"
-            + "  gl_FragColor = 0.25 * (texture2D(uTex, vUv + uTexel * vec2(-1.0, -1.0))\n"
-            + "      + texture2D(uTex, vUv + uTexel * vec2(1.0, -1.0))\n"
-            + "      + texture2D(uTex, vUv + uTexel * vec2(-1.0, 1.0))\n"
-            + "      + texture2D(uTex, vUv + uTexel * vec2(1.0, 1.0)));\n}\n";
-
-    private final Look look = Look.DEFAULT;
-    private final Scene scene = new Scene(look);
+    /** Its lens values size the render targets and make the lens map, which Nagaya reads only for the blur's oval. */
+    private final Look look = Look.YOJOHAN;
+    private final Slot yojohan = new Slot(Look.YOJOHAN);
+    private final Slot nagaya = new Slot(Look.NAGAYA);
+    private final LookSchedule schedule = new LookSchedule();
+    /** The wall-clock time of this view's first frame, for the schedule; NaN before it. */
+    private double startedAt = Double.NaN;
     private final float floorR, floorG, floorB;
-    private final FloatBuffer meshBuffer;
     private final FloatBuffer quadBuffer;
     /** The grain tile, made once on the GL thread, off Home's main thread. Its GPU copy dies with each GL context. */
     private ByteBuffer grainPixels;
@@ -86,16 +66,46 @@ final class FloorPlanGlRenderer implements GLSurfaceView.Renderer {
     private final float[] wideMatrix = new float[16];
     private volatile Effects effects;
     private int width, height, wideWidth, wideHeight, blurWidth, blurHeight;
-    private int sceneProgram, plainProgram, downsample, blur, blend, meshVbo, quadVbo, grainTexture;
-    /** Uniform locations, named as in the shaders. uLens reads texture unit 1; every other sampler unit 0. */
-    private int uMatrix, uPlainMatrix, uInvSize, uVig, uGrainAmp, uGrainOffset, uTexel, uStep, uBlendVig, uBlurArea;
+    /** The passes both looks share: their shaders are the same for both. */
+    private int plainProgram, downsample, blur, meshVbo, quadVbo, grainTexture;
+    /** Uniform locations, named as in the shaders. */
+    private int uPlainMatrix, uTexel, uStep;
+
+    /**
+     * One look's part of the renderer: its scene, its own copy of each frame's triangles and matrix (Nagaya's scene is
+     * shared by the process, so a frame is copied out under its lock), and its programs, made in every GL context.
+     */
+    private static final class Slot {
+        final Look look;
+        /** Yojōhan's from the start; Nagaya's once its shared build is ready. Read on the GL thread only. */
+        Scene scene;
+        /** Sized from the scene's own mesh. */
+        FloatBuffer mesh;
+        int floats;
+        final float[] matrix = new float[16];
+        /** True once the programs exist in the current GL context. */
+        boolean made;
+        int sceneProgram, blend;
+        /** Uniform locations, named as in the shaders. uLens reads texture unit 1; every other sampler unit 0. */
+        int uMatrix, uInvSize, uVig, uGrainAmp, uGrainOffset, uFade, uBlendVig, uBlendFade, uBlurArea;
+
+        Slot(Look look) {
+            this.look = look;
+        }
+
+        /** Takes the scene and a buffer for its triangles. */
+        void hold(Scene scene) {
+            mesh = floats(scene.mesh.data.length);
+            this.scene = scene;
+        }
+    }
 
     FloorPlanGlRenderer(Effects effects) {
         this.effects = effects;
-        floorR = ((look.colours.floor >> 16) & 0xFF) / 255f;
-        floorG = ((look.colours.floor >> 8) & 0xFF) / 255f;
-        floorB = (look.colours.floor & 0xFF) / 255f;
-        meshBuffer = floats(scene.mesh.data.length);
+        floorR = ((look.palette.floor >> 16) & 0xFF) / 255f;
+        floorG = ((look.palette.floor >> 8) & 0xFF) / 255f;
+        floorB = (look.palette.floor & 0xFF) / 255f;
+        yojohan.hold(Scenes.APP.make(Look.YOJOHAN, NagayaScene::report));
         quadBuffer = floats(8);
         quadBuffer.put(new float[] {-1, -1, 1, -1, -1, 1, 1, 1}).position(0);
     }
@@ -158,24 +168,14 @@ final class FloorPlanGlRenderer implements GLSurfaceView.Renderer {
     /** A new context: everything from the old one is gone, its render targets and grain tile too. */
     private void setUp() {
         texture[0] = 0;   // so size() does not delete the old names, which may be live ones in this context
-        Look.Post post = look.post;
-        sceneProgram = program(SCENE_VERTEX, sceneFragment(post));
-        plainProgram = program(SCENE_VERTEX, PLAIN_FRAGMENT);
-        downsample = program(QUAD_VERTEX, DOWNSAMPLE_FRAGMENT);
-        blur = program(QUAD_VERTEX, blurFragment(post));
-        blend = program(QUAD_VERTEX, BLEND_FRAGMENT);
-        uMatrix = GLES20.glGetUniformLocation(sceneProgram, "uMatrix");
+        nagaya.made = false;   // made when Nagaya is first ready in this context
+        make(yojohan);
+        plainProgram = program(Shaders.SCENE_VERTEX, Shaders.PLAIN_FRAGMENT);
+        downsample = program(Shaders.QUAD_VERTEX, Shaders.DOWNSAMPLE_FRAGMENT);
+        blur = program(Shaders.QUAD_VERTEX, Shaders.blurFragment(look.post));
         uPlainMatrix = GLES20.glGetUniformLocation(plainProgram, "uMatrix");
-        uInvSize = GLES20.glGetUniformLocation(sceneProgram, "uInvSize");
-        uVig = GLES20.glGetUniformLocation(sceneProgram, "uVig");
-        uGrainAmp = GLES20.glGetUniformLocation(sceneProgram, "uGrainAmp");
-        uGrainOffset = GLES20.glGetUniformLocation(sceneProgram, "uGrainOffset");
         uTexel = GLES20.glGetUniformLocation(downsample, "uTexel");
         uStep = GLES20.glGetUniformLocation(blur, "uStep");
-        uBlendVig = GLES20.glGetUniformLocation(blend, "uVig");
-        uBlurArea = GLES20.glGetUniformLocation(blend, "uBlurArea");
-        lensOnUnit1(sceneProgram);
-        lensOnUnit1(blend);
         int[] buffers = new int[2];
         GLES20.glGenBuffers(2, buffers, 0);
         meshVbo = buffers[0];
@@ -227,6 +227,25 @@ final class FloorPlanGlRenderer implements GLSurfaceView.Renderer {
         sampling(GLES20.GL_LINEAR, GLES20.GL_CLAMP_TO_EDGE);
     }
 
+    /** The slot's look's own passes: the scene into the window, and the blurred copy over it. */
+    private static void make(Slot s) {
+        Look.Post post = s.look.post;
+        s.sceneProgram = program(Shaders.SCENE_VERTEX, Shaders.sceneFragment(post));
+        s.blend = program(Shaders.QUAD_VERTEX, Shaders.blendFragment(post));
+        s.uMatrix = GLES20.glGetUniformLocation(s.sceneProgram, "uMatrix");
+        s.uInvSize = GLES20.glGetUniformLocation(s.sceneProgram, "uInvSize");
+        s.uVig = GLES20.glGetUniformLocation(s.sceneProgram, "uVig");
+        s.uGrainAmp = GLES20.glGetUniformLocation(s.sceneProgram, "uGrainAmp");
+        s.uGrainOffset = GLES20.glGetUniformLocation(s.sceneProgram, "uGrainOffset");
+        s.uFade = GLES20.glGetUniformLocation(s.sceneProgram, "uFade");
+        s.uBlendVig = GLES20.glGetUniformLocation(s.blend, "uVig");
+        s.uBlurArea = GLES20.glGetUniformLocation(s.blend, "uBlurArea");
+        s.uBlendFade = GLES20.glGetUniformLocation(s.blend, "uFade");
+        lensOnUnit1(s.sceneProgram);
+        lensOnUnit1(s.blend);
+        s.made = true;
+    }
+
     /** Points the program's uLens sampler at texture unit 1. */
     private static void lensOnUnit1(int program) {
         GLES20.glUseProgram(program);
@@ -236,13 +255,53 @@ final class FloorPlanGlRenderer implements GLSurfaceView.Renderer {
     private void draw() {
         Effects fx = effects;
         double t = FloorPlanView.now();
-        scene.build(t, width, height, fx.doors, fx.fixtures, fx.camera);
-        SceneMesh mesh = scene.mesh;
-        meshBuffer.clear();
-        meshBuffer.put(mesh.data, 0, mesh.floats).position(0);
+        boolean wantsNagaya = fx.look != LookSchedule.Mode.YOJOHAN;
+        if (Double.isNaN(startedAt)) startedAt = t;
+        schedule.at(t, fx.look, fx.swapMinutes * 60.0, wantsNagaya ? nagayaSince() : Double.POSITIVE_INFINITY, startedAt);
+        if (schedule.look == Look.NAGAYA) {
+            try {
+                draw(nagaya, fx, t, schedule.fade);
+            } catch (Throwable failure) {
+                Scenes.APP.failed(Look.NAGAYA, failure, NagayaScene::report);
+                draw(yojohan, fx, t, 1f);
+            }
+        } else {
+            draw(yojohan, fx, t, schedule.fade);
+        }
+        if (wantsNagaya) NagayaScene.request();   // after the first frame, so the plan shows at once
+    }
+
+    /**
+     * When Nagaya became ready to draw, for the schedule: positive infinity until its shared scene is built and,
+     * in this context, its programs are made. A failure here marks it failed and keeps Yojōhan.
+     */
+    private double nagayaSince() {
+        Scene shared = NagayaScene.scene();
+        if (shared == null) return Double.POSITIVE_INFINITY;
+        try {
+            if (nagaya.scene != shared) nagaya.hold(shared);
+            if (!nagaya.made) make(nagaya);
+        } catch (Throwable failure) {
+            Scenes.APP.failed(Look.NAGAYA, failure, NagayaScene::report);
+            return Double.POSITIVE_INFINITY;
+        }
+        return NagayaScene.readySince();
+    }
+
+    /** One frame of the slot's look; {@code fade} darkens all of it, 1 as drawn, 0 black. */
+    private void draw(Slot s, Effects fx, double t, float fade) {
+        Scene scene = s.scene;
+        synchronized (scene) {
+            scene.build(t, width, height, fx.doors, fx.fixtures, fx.camera, fx.vignette);
+            s.floats = scene.mesh.floats;
+            s.mesh.clear();
+            s.mesh.put(scene.mesh.data, 0, s.floats).position(0);
+            System.arraycopy(scene.matrix, 0, s.matrix, 0, 16);
+        }
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, meshVbo);
-        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, mesh.floats * 4, meshBuffer, GLES20.GL_STREAM_DRAW);
-        Grain.offset(t, look.post.grainFps, grainOffset);
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, s.floats * 4, s.mesh, GLES20.GL_STREAM_DRAW);
+        Grain.offset(t, s.look.post.grainFps, grainOffset);
+        // a look washed on the CPU has no uVig: the vignette switch turned its wash off in the build above
         float vignette = fx.vignette ? 1f : 0f;
         GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture[3]);
@@ -252,7 +311,7 @@ final class FloorPlanGlRenderer implements GLSurfaceView.Renderer {
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, framebuffer[0]);
             GLES20.glViewport(0, 0, wideWidth, wideHeight);
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-            drawPlainScene();   // no lens yet, and no grain: grain belongs to the sharp layer only
+            drawPlainScene(s);   // no lens yet, and no grain: grain belongs to the sharp layer only
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, framebuffer[1]);
             GLES20.glViewport(0, 0, blurWidth, blurHeight);
             GLES20.glUseProgram(downsample);
@@ -266,37 +325,42 @@ final class FloorPlanGlRenderer implements GLSurfaceView.Renderer {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
         GLES20.glViewport(0, 0, width, height);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-        drawScene(vignette, fx.grain ? 1f : 0f);
+        drawScene(s, vignette, fx.grain ? 1f : 0f, fade);
 
         if (fx.tiltShift) {
             GLES20.glEnable(GLES20.GL_BLEND);
             GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
-            GLES20.glUseProgram(blend);
+            GLES20.glUseProgram(s.blend);
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture[1]);
-            GLES20.glUniform1f(uBlendVig, vignette);
+            GLES20.glUniform1f(s.uBlendVig, vignette);
+            GLES20.glUniform1f(s.uBlendFade, fade);
             // where the screen sits inside the wider blurred copy: scale x, y, then offset x, y
-            GLES20.glUniform4f(uBlurArea, (float) width / wideWidth, (float) height / wideHeight,
+            GLES20.glUniform4f(s.uBlurArea, (float) width / wideWidth, (float) height / wideHeight,
                     (float) marginX / wideWidth, (float) marginY / wideHeight);
             drawQuad();
             GLES20.glDisable(GLES20.GL_BLEND);
         }
     }
 
-    /** The scene's triangles through the lens into the bound target. {@code vignette} and {@code grain} are 1 (on) or 0 (off). */
-    private void drawScene(float vignette, float grain) {
-        GLES20.glUseProgram(sceneProgram);
-        GLES20.glUniformMatrix4fv(uMatrix, 1, false, scene.matrix, 0);
-        GLES20.glUniform2f(uInvSize, 1f / width, 1f / height);
-        GLES20.glUniform1f(uVig, vignette);
-        GLES20.glUniform1f(uGrainAmp, grain);
-        GLES20.glUniform2f(uGrainOffset, grainOffset[0], grainOffset[1]);
+    /**
+     * The scene's triangles through the lens into the bound target. {@code vignette} and {@code grain} are 1 (on) or
+     * 0 (off); {@code fade} darkens the result.
+     */
+    private void drawScene(Slot s, float vignette, float grain, float fade) {
+        GLES20.glUseProgram(s.sceneProgram);
+        GLES20.glUniformMatrix4fv(s.uMatrix, 1, false, s.matrix, 0);
+        GLES20.glUniform2f(s.uInvSize, 1f / width, 1f / height);
+        GLES20.glUniform1f(s.uVig, vignette);
+        GLES20.glUniform1f(s.uGrainAmp, grain);
+        GLES20.glUniform1f(s.uFade, fade);
+        GLES20.glUniform2f(s.uGrainOffset, grainOffset[0], grainOffset[1]);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, grainTexture);
-        drawTriangles();
+        drawTriangles(s);
     }
 
     /** The scene's triangles as they are into the wider copy to blur: the screen's view, shrunk to fit it. */
-    private void drawPlainScene() {
-        float[] m = scene.matrix, wide = wideMatrix;
+    private void drawPlainScene(Slot s) {
+        float[] m = s.matrix, wide = wideMatrix;
         float sx = (float) width / wideWidth, sy = (float) height / wideHeight;
         System.arraycopy(m, 0, wide, 0, 16);
         wide[0] = m[0] * sx;
@@ -307,17 +371,17 @@ final class FloorPlanGlRenderer implements GLSurfaceView.Renderer {
         wide[13] = m[13] * sy;
         GLES20.glUseProgram(plainProgram);
         GLES20.glUniformMatrix4fv(uPlainMatrix, 1, false, wide, 0);
-        drawTriangles();
+        drawTriangles(s);
     }
 
-    private void drawTriangles() {
+    private void drawTriangles(Slot s) {
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, meshVbo);
         int stride = SceneMesh.FLOATS_PER_VERTEX * 4;
         GLES20.glEnableVertexAttribArray(POS);
         GLES20.glVertexAttribPointer(POS, 2, GLES20.GL_FLOAT, false, stride, 0);
         GLES20.glEnableVertexAttribArray(COLOR);
         GLES20.glVertexAttribPointer(COLOR, 4, GLES20.GL_FLOAT, false, stride, 8);
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, scene.mesh.floats / SceneMesh.FLOATS_PER_VERTEX);
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, s.floats / SceneMesh.FLOATS_PER_VERTEX);
         GLES20.glDisableVertexAttribArray(COLOR);
     }
 
@@ -342,60 +406,6 @@ final class FloorPlanGlRenderer implements GLSurfaceView.Renderer {
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, filter);
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, wrap);
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, wrap);
-    }
-
-    // ------------------------------------------------------------------------------- shaders
-
-    /**
-     * The plan's triangles through the lens, into the window. The vignette and colour ramp (uVig 1 or 0)
-     * come from the lens map. Grain is zero-mean and added last (uGrainAmp 1 or 0); only this sharp layer
-     * has it, so it fades where the blurred copy covers it.
-     */
-    private static String sceneFragment(Look.Post post) {
-        return LENS_PRECISION
-                + "uniform vec2 uInvSize;\nuniform float uVig;\nuniform float uGrainAmp;\nuniform HIGHP vec2 uGrainOffset;\n"
-                + "uniform sampler2D uGrain;\nuniform sampler2D uLens;\nvarying vec4 vColor;\n"
-                + "void main() {\n"
-                + "  vec3 c = vColor.rgb * mix(vec3(1.0), texture2D(uLens, gl_FragCoord.xy * uInvSize).rgb * 2.0, uVig);\n"
-                + "  float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));\n"
-                + "  HIGHP vec2 g = gl_FragCoord.xy / " + glsl(Grain.SIZE) + " + uGrainOffset;\n"
-                + "  float n = (texture2D(uGrain, g).r - 0.5) * 8.0;\n"
-                + "  c += n * (" + glsl(post.grainBase / 255f) + " + " + glsl(post.grainSlope / 255f)
-                + " * luma * luma) * uGrainAmp;\n"
-                + "  gl_FragColor = vec4(c, 1.0);\n}\n";
-    }
-
-    /** One separable Gaussian round, along uStep (one texel across or down). */
-    private static String blurFragment(Look.Post post) {
-        StringBuilder s = new StringBuilder(PRECISION)
-                .append("uniform sampler2D uTex;\nuniform vec2 uStep;\nvarying vec2 vUv;\n")
-                .append("void main() {\n  vec4 c = vec4(0.0);\n");
-        for (int i = 0; i < post.blurWeights.length; i++) {
-            String w = glsl(post.blurWeights[i]), o = glsl(post.blurOffsets[i]);
-            if (post.blurOffsets[i] == 0f) {
-                s.append("  c += texture2D(uTex, vUv) * ").append(w).append(";\n");
-            } else {
-                s.append("  c += (texture2D(uTex, vUv + uStep * ").append(o).append(") + texture2D(uTex, vUv - uStep * ")
-                        .append(o).append(")) * ").append(w).append(";\n");
-            }
-        }
-        return s.append("  gl_FragColor = c;\n}\n").toString();
-    }
-
-    /** The blurred copy through the same lens, see-through in the sharp oval and opaque outside it. */
-    private static final String BLEND_FRAGMENT = LENS_PRECISION
-            + "uniform sampler2D uTex;\nuniform sampler2D uLens;\nuniform float uVig;\nuniform HIGHP vec4 uBlurArea;\n"
-            + "varying HIGHP vec2 vUv;\n"
-            + "void main() {\n"
-            + "  vec4 lens = texture2D(uLens, vUv);\n"
-            + "  HIGHP vec2 uv = vUv * uBlurArea.xy + uBlurArea.zw;\n"
-            + "  vec3 blurred = texture2D(uTex, uv).rgb;\n"
-            + "  gl_FragColor = vec4(blurred * mix(vec3(1.0), lens.rgb * 2.0, uVig), lens.a);\n}\n";
-
-    /** A GLSL ES 1.00 float literal. Float.toString always writes a decimal point ("2.0", "0.42", "1.0E-5"). */
-    private static String glsl(float v) {
-        if (Float.isNaN(v) || Float.isInfinite(v)) throw new IllegalArgumentException("not a number: " + v);
-        return Float.toString(v);
     }
 
     private static int program(String vertex, String fragment) {

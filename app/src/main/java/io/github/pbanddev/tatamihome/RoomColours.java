@@ -31,18 +31,34 @@ public final class RoomColours {
 
     private RoomColours() {}
 
-    /** One index into {@link Look.Colours#deck} per room. A room keeps its index in every frame. */
+    /** One index into {@link Look.Palette#deck} per room. A room keeps its index in every frame. */
     public static int[] deal(FloorPlan plan, Look look) {
         Random random = new Random(look.plan.seed ^ STREAM);
         boolean[][] touching = touching(plan, look.camera.angleDeg, random);
-        int[] deck = look.colours.deck;
+        int[] deck = look.palette.deck;
         double[][] lab = new double[deck.length][];
         for (int c = 0; c < deck.length; c++) lab[c] = lab(deck[c]);
         boolean[][] alike = new boolean[deck.length][deck.length];
         for (int c = 0; c < deck.length; c++) {
             for (int d = 0; d < deck.length; d++) alike[c][d] = c != d && deltaE2000(lab[c], lab[d]) < ALIKE;
         }
-        return assign(quotas(look.colours.cards, plan.rooms), touching, alike, random);
+        return assign(quotas(look.palette.cards, plan.rooms), touching, alike, random);
+    }
+
+    /**
+     * One index into {@link Look.Palette#deck} per room id, the quotas in a random order fixed by the seed: no rule
+     * about neighbours, so equal paints may touch.
+     */
+    public static int[] shuffle(int rooms, Look look) {
+        Random random = new Random(look.plan.seed ^ STREAM);
+        int[] quotas = quotas(look.palette.cards, rooms);
+        int[] paint = new int[rooms];
+        int k = 0;
+        for (int c = 0; c < quotas.length; c++) {
+            for (int n = 0; n < quotas[c]; n++) paint[k++] = c;
+        }
+        for (int i = rooms - 1; i > 0; i--) swap(paint, i, random.nextInt(i + 1));
+        return paint;
     }
 
     /**

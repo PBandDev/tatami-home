@@ -5,7 +5,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 public class CameraTest {
-    private static final float ANGLE = Look.DEFAULT.camera.angleDeg;
+    private static final float ANGLE = Look.YOJOHAN.camera.angleDeg;
 
     /** Maps a screen point into plan space the way the renderer's canvas transform does, in reverse. */
     private static float[] toPlan(float sx, float sy, double t, float w, float h, boolean moving) {
@@ -21,7 +21,7 @@ public class CameraTest {
 
     /** The renderer draws the copy to blur past every screen edge (padded as it pads it), so the plan must reach it too. */
     private static float margin(int size) {
-        Look.Post post = Look.DEFAULT.post;
+        Look.Post post = Look.YOJOHAN.post;
         return Lens.padded(size, Lens.margin(post), post.blurDivisor);
     }
 

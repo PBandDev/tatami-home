@@ -4,6 +4,13 @@
     <string name="tatami_home_name">Tatami Home</string>
     <string name="tatami_dream_name">Tatami floor plan</string>
     <string name="effects_title">Effects</string>
+    <string name="setting_row">%1$s: %2$s</string>
+    <string name="look_label">Look</string>
+    <string name="look_yojohan">Yojōhan</string>
+    <string name="look_nagaya">Nagaya</string>
+    <string name="look_both">Both</string>
+    <string name="swap_label">Swap every</string>
+    <string name="swap_minutes">%d min</string>
     <string name="floor_plan_effects">Floor plan effects</string>
     <string name="effect_grain">Film grain</string>
     <string name="effect_vignette">Vignette</string>

@@ -37,6 +37,27 @@ public class PlanGeometryTest {
     }
 
     @Test
+    public void findsTheRoomByItsCellsWhenThereAreCells() {
+        // one L-shaped room of 2 cells, and the room in its notch
+        Frame f = new Frame(2, 3, 0, 0, 0, 3);
+        f.roomCount = 2;
+        float[][] cells = {{0, 0, 60, 20}, {0, 20, 30, 40}, {30, 20, 60, 40}};
+        int[] room = {0, 0, 1};
+        for (float[] c : cells) {
+            int k = f.cellCount++;
+            f.cellX[k] = c[0];
+            f.cellY[k] = c[1];
+            f.cellW[k] = c[2] - c[0];
+            f.cellH[k] = c[3] - c[1];
+            f.cellRoom[k] = room[k];
+        }
+        assertEquals(0, PlanGeometry.roomAt(f, 50, 10));
+        assertEquals(0, PlanGeometry.roomAt(f, 10, 30));
+        assertEquals(1, PlanGeometry.roomAt(f, 50, 30));
+        assertEquals(-1, PlanGeometry.roomAt(f, 70, 30));
+    }
+
+    @Test
     public void findsTheRoomThatHoldsAPoint() {
         Frame f = rooms(CLOCKWISE);
         assertEquals(4, PlanGeometry.roomAt(f, 50, 50));

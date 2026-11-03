@@ -8,8 +8,19 @@ package io.github.pbanddev.tatamihome;
 public final class PlanGeometry {
     private PlanGeometry() {}
 
-    /** The room that holds the point, or -1 outside the plan. A point on a wall goes to the first room found. */
+    /**
+     * The room (its index) that holds the point, or -1 outside the plan. A point on a wall goes to the first room
+     * found. Reads the cells when the frame has them, else the rooms as boxes.
+     */
     public static int roomAt(Frame f, float x, float y) {
+        if (f.cellCount > 0) {
+            for (int c = 0; c < f.cellCount; c++) {
+                if (x >= f.cellX[c] && x < f.cellX[c] + f.cellW[c] && y >= f.cellY[c] && y < f.cellY[c] + f.cellH[c]) {
+                    return f.cellRoom[c];
+                }
+            }
+            return -1;
+        }
         for (int i = 0; i < f.roomCount; i++) {
             if (x >= f.roomX[i] && x < f.roomX[i] + f.roomW[i] && y >= f.roomY[i] && y < f.roomY[i] + f.roomH[i]) {
                 return i;

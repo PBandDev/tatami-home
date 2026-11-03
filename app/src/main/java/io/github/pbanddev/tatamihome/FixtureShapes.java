@@ -99,10 +99,10 @@ final class FixtureShapes {
     /** Both black shapes, then both fills one stroke in, so no line shows where the bowl meets the tank. */
     private static void toilet(SceneMesh m, Look look) {
         float s = look.fixtures.line, cx = TANK_W / 2;
-        m.color(look.colours.line);
+        m.color(look.palette.line);
         m.rect(0, 0, TANK_W, TANK_D);
         oval(m, cx, BOWL_Y, BOWL_W / 2, BOWL_D / 2, STEPS / BOWL_SEGMENTS);
-        m.color(look.colours.fixture);
+        m.color(look.palette.fixture);
         m.rect(s, s, TANK_W - 2 * s, TANK_D - 2 * s);
         oval(m, cx, BOWL_Y, BOWL_W / 2 - s, BOWL_D / 2 - s, STEPS / BOWL_SEGMENTS);
     }
@@ -110,20 +110,20 @@ final class FixtureShapes {
     /** 4 rounded boxes on one centre: black, fill one stroke in, black at the basin, fill one stroke in. */
     private static void tub(SceneMesh m, Look look) {
         float s = look.fixtures.line;
-        m.color(look.colours.line);
+        m.color(look.palette.line);
         roundBox(m, 0, TUB_RADIUS);
-        m.color(look.colours.fixture);
+        m.color(look.palette.fixture);
         roundBox(m, s, TUB_RADIUS - s);
-        m.color(look.colours.line);
+        m.color(look.palette.line);
         roundBox(m, RIM, BASIN_RADIUS);
-        m.color(look.colours.fixture);
+        m.color(look.palette.fixture);
         roundBox(m, RIM + s, Math.max(0f, BASIN_RADIUS - s));
     }
 
     private static void stairs(SceneMesh m, Look look) {
-        m.color(look.colours.stairs);
+        m.color(look.palette.stairs);
         m.rect(0, 0, RUN, ACROSS);
-        m.color(look.colours.line);
+        m.color(look.palette.line);
         m.rect(0, 0, RUN, FREE_SIDE_LINE);
         m.rect(0, 0, FREE_END_LINE, ACROSS);
         m.line(0, RAIL_NEAR, RUN, RAIL_NEAR, STAIRS_LINE);

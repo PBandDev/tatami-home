@@ -10,8 +10,8 @@ import java.util.Random;
 import org.junit.Test;
 
 public class RoomColoursTest {
-    private static final Look LOOK = Look.DEFAULT;
-    private static final int[] CARDS = LOOK.colours.cards;
+    private static final Look LOOK = Look.YOJOHAN;
+    private static final int[] CARDS = LOOK.palette.cards;
     /** Epoch seconds in November 2026: the clock Home and the screensaver both read. */
     private static final double NOW = 1_793_500_000.0;
     private static final float EPS = 0.05f;
@@ -24,7 +24,7 @@ public class RoomColoursTest {
 
     @Test
     public void quotasAreTheCardsFor64Rooms() {
-        assertEquals(LOOK.colours.deck.length, CARDS.length);
+        assertEquals(LOOK.palette.deck.length, CARDS.length);
         assertEquals(64, sum(CARDS));
         assertArrayEquals(CARDS, RoomColours.quotas(CARDS, 64));
     }
@@ -47,9 +47,21 @@ public class RoomColoursTest {
         FloorPlan plan = new FloorPlan(LOOK);
         int[] paints = RoomColours.deal(plan, LOOK);
         assertEquals(plan.rooms, paints.length);
-        int[] count = new int[LOOK.colours.deck.length];
+        int[] count = new int[LOOK.palette.deck.length];
         for (int p : paints) count[p]++;
         assertArrayEquals(RoomColours.quotas(CARDS, plan.rooms), count);
+    }
+
+    @Test
+    public void shuffleHandsOutExactlyTheQuotasTheSameWayEachTime() {
+        Look ember = Look.NAGAYA;
+        assertEquals(64, sum(ember.palette.cards));
+        assertEquals(ember.palette.deck.length, ember.palette.cards.length);
+        int[] paints = RoomColours.shuffle(70, ember);
+        int[] count = new int[ember.palette.deck.length];
+        for (int p : paints) count[p]++;
+        assertArrayEquals(RoomColours.quotas(ember.palette.cards, 70), count);
+        assertArrayEquals(paints, RoomColours.shuffle(70, ember));
     }
 
     @Test
