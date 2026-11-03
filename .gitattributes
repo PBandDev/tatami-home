@@ -13,8 +13,10 @@
 *.jar  binary
 *.apk  binary
 
-# git archive gives the Tatami add-on only (cleanyourtv's addons/tatami/): no media, no Tatami Home, no PC tools.
+# git archive gives the Tatami add-on only, for cleanyourtv's addons/tatami/: no media, no Tatami Home, no PC tools.
+# tools/export-addon.sh adds docs/addon-README.md as its README.
 /docs export-ignore
 /home export-ignore
 /tools export-ignore
 /.gitattributes export-ignore
+/README.md export-ignore

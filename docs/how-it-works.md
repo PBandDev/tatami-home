@@ -1,7 +1,7 @@
 # How Tatami works
 
 Notes for people who want to change Tatami or check what it does. To install and use it, read the
-[README](../README.md) (the Tatami add-on) or [home/README.md](../home/README.md) (Tatami Home).
+[README](../README.md).
 
 The repo holds two apps that share one copy of Tatami:
 
@@ -11,8 +11,9 @@ The repo holds two apps that share one copy of Tatami:
 | `app/` | The Tatami add-on: `plan/` plus a module card for cleanyourtv's Home. Built from the repo root | `io.github.pbanddev.tatami` |
 | `home/app/` | Tatami Home: cleanyourtv's launcher with `plan/` behind the apps. Built with `./gradlew -p home` | `io.github.pbanddev.tatamihome` |
 
-`git archive` leaves out `docs/`, `home/` and `tools/` (`.gitattributes`), so it gives exactly the add-on folder
-that cleanyourtv keeps in `addons/tatami/`.
+`tools/export-addon.sh <cleanyourtv checkout>` writes the add-on folder that cleanyourtv keeps in `addons/tatami/`:
+`git archive` without `docs/`, `home/`, `tools/` and this README (`.gitattributes`), plus `docs/addon-README.md`
+as its README.
 
 ## What it asks for
 
